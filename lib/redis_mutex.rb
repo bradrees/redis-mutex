@@ -58,12 +58,14 @@ class RedisMutex < RedisClassy
   end
 
   # Extends the expire time just in case process needs more time
-  def reset_expire
-    raise ExpireResetError, "extend_expire should be called only on locked resources" unless locked?
+  def reset_expire(force = false)
+    raise ExpireResetError, "reset_expire should be called only on locked resources" unless locked?
     # we've the lock so we can safely set the new expire time
     now = Time.now.to_f
-    @expires_at = now + @expire
-    set(@expires_at)
+    if force || (@expires_at < (now + (@expire / 2)))
+      @expires_at = now + @expire
+      set(@expires_at)
+    end
   end
 
   # Returns true if resource is locked. Note that nil.to_f returns 0.0
