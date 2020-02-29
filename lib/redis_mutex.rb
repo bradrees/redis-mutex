@@ -59,7 +59,7 @@ class RedisMutex < RedisClassy
 
   # Extends the expire time just in case process needs more time
   def reset_expire(force = false)
-    raise ExpireResetError, "reset_expire should be called only on locked resources" unless locked?
+    raise ExpireResetError, "reset_expire should be called only on locked resources" unless has_lock?
     # we've the lock so we can safely set the new expire time
     now = Time.now.to_f
     if force || (@expires_at < (now + (@expire / 2)))
@@ -73,12 +73,17 @@ class RedisMutex < RedisClassy
     get.to_f > Time.now.to_f
   end
 
+  # Returns true if the current instance has the active lock
+  def has_lock?
+    @expires_at && (expires = get) && expires == @expires_at.to_s
+  end
+
   def unlock(force = false)
     # Since it's possible that the operations in the critical section took a long time,
     # we can't just simply release the lock. The unlock method checks if @expires_at
     # remains the same, and do not release when the lock timestamp was overwritten.
 
-    if get == @expires_at.to_s or force
+    if has_lock? or force
       # Redis#del with a single key returns '1' or nil
       !!del
     else
